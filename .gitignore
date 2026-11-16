@@ -1,0 +1,31 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Build output
+bin/
+obj/
+BundleArtifacts/
+TestResults/
+StorePackages/
+
+# Packages and installers
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.msixupload
+*.pri
+
+# Certificates and signing files
+*.pfx
+*.p12
+*.cer
+
+# Logs and temporary files
+*.log
+*.tmp
+Thumbs.db
+.DS_Store

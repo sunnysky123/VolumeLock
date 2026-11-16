@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="AppSubtitle.Text"><value>锁定扬声器和麦克风音量，防止其他软件悄悄修改</value></data>
+
+  <data name="StatusInfoBar.Title"><value>准备就绪</value></data>
+  <data name="StatusInfoBar.Message"><value>选择设备并设置音量后，打开对应的锁定开关即可。</value></data>
+
+  <data name="SpeakerTitle.Text"><value>扬声器</value></data>
+  <data name="SpeakerStatusText.Text"><value>未锁定</value></data>
+  <data name="SpeakerDeviceComboBox.Header"><value>输出设备</value></data>
+  <data name="SpeakerDeviceComboBox.PlaceholderText"><value>未检测到设备</value></data>
+  <data name="SpeakerVolumeSlider.Header"><value>音量</value></data>
+  <data name="SpeakerLockToggle.Header"><value>锁定此设备音量</value></data>
+  <data name="SpeakerLockToggle.OffContent"><value>未锁定</value></data>
+  <data name="SpeakerLockToggle.OnContent"><value>已锁定</value></data>
+
+  <data name="MicrophoneTitle.Text"><value>麦克风</value></data>
+  <data name="MicrophoneStatusText.Text"><value>未锁定</value></data>
+  <data name="MicrophoneDeviceComboBox.Header"><value>输入设备</value></data>
+  <data name="MicrophoneDeviceComboBox.PlaceholderText"><value>未检测到设备</value></data>
+  <data name="MicrophoneVolumeSlider.Header"><value>音量</value></data>
+  <data name="MicrophoneLockToggle.Header"><value>锁定此设备音量</value></data>
+  <data name="MicrophoneLockToggle.OffContent"><value>未锁定</value></data>
+  <data name="MicrophoneLockToggle.OnContent"><value>已锁定</value></data>
+
+  <data name="RefreshButton.Content"><value>刷新设备</value></data>
+  <data name="FooterHint.Text"><value>提示：请保持本应用运行，退出后锁定自动解除。</value></data>
+
+  <data name="StatusUnlocked"><value>未锁定 · 可自由调整</value></data>
+  <data name="StatusDeviceSwitched"><value>已切换设备，请重新锁定</value></data>
+  <data name="StatusLockedWithCount"><value>已锁定 · 已拦截 {0} 次修改</value></data>
+  <data name="StatusLockedWithAction"><value>已锁定 · 已{0} {1} 次</value></data>
+  <data name="LockActionUnmute"><value>取消静音</value></data>
+  <data name="LockActionRestore"><value>还原音量</value></data>
+
+  <data name="ErrorCannotLockSpeaker"><value>无法锁定扬声器</value></data>
+  <data name="ErrorSelectOutputDevice"><value>请先选择一个输出设备。</value></data>
+  <data name="ErrorLockSpeakerFailed"><value>锁定扬声器失败</value></data>
+  <data name="ErrorCannotLockMicrophone"><value>无法锁定麦克风</value></data>
+  <data name="ErrorSelectInputDevice"><value>请先选择一个输入设备。</value></data>
+  <data name="ErrorLockMicrophoneFailed"><value>锁定麦克风失败</value></data>
+  <data name="ErrorSetSpeakerVolumeFailed"><value>设置扬声器音量失败</value></data>
+  <data name="ErrorSetMicrophoneVolumeFailed"><value>设置麦克风音量失败</value></data>
+  <data name="ErrorReadSpeakerVolumeFailed"><value>读取扬声器音量失败</value></data>
+  <data name="ErrorReadMicrophoneVolumeFailed"><value>读取麦克风音量失败</value></data>
+  <data name="ErrorLoadDevicesFailed"><value>加载音频设备失败</value></data>
+  <data name="ErrorVolumeLockException"><value>音量锁定异常</value></data>
+
+  <data name="WarningNoAudioDevicesTitle"><value>未检测到音频设备</value></data>
+  <data name="WarningNoAudioDevicesMessage"><value>请确认设备已连接并启用后再试。</value></data>
+  <data name="InfoDevicesRefreshedTitle"><value>设备列表已刷新</value></data>
+  <data name="InfoDevicesRefreshedMessage"><value>设备仍可用时会保留当前锁定状态。</value></data>
+
+  <data name="TrayShow"><value>显示主界面</value></data>
+  <data name="TrayLockSpeaker"><value>锁定扬声器</value></data>
+  <data name="TrayLockMicrophone"><value>锁定麦克风</value></data>
+  <data name="TrayExit"><value>退出</value></data>
+  <data name="TrayTooltipUnlocked"><value>VolumeLock · 未锁定</value></data>
+  <data name="TrayTooltipSpeaker"><value>已锁定扬声器：音量{0}%</value></data>
+  <data name="TrayTooltipMicrophone"><value>已锁定麦克风：音量{0}%</value></data>
+</root>

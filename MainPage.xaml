@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="VolumeLock.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:VolumeLock"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Loaded="MainPage_Loaded"
+    Unloaded="MainPage_Unloaded">
+
+    <Grid Padding="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
+            <FontIcon
+                Glyph="&#xE767;"
+                FontSize="28"
+                Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+            <StackPanel>
+                <TextBlock Text="VolumeLock" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock
+                    x:Uid="AppSubtitle"
+                    Text="Lock speaker and microphone volume to stop other apps from changing it"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <InfoBar
+            x:Name="StatusInfoBar"
+            x:Uid="StatusInfoBar"
+            Grid.Row="1"
+            IsOpen="True"
+            IsClosable="False"
+            Severity="Informational"
+            Title="Ready"
+            Message="Select a device, set the volume, then turn on the corresponding lock." />
+
+        <ScrollViewer
+            Grid.Row="2"
+            Margin="0,16,0,16"
+            HorizontalScrollMode="Disabled"
+            VerticalScrollMode="Auto">
+            <Grid ColumnSpacing="16" VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="320" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Grid.Column="0"
+                    Padding="20"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon
+                                Glyph="&#xE7F6;"
+                                FontSize="22"
+                                Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <StackPanel>
+                                <TextBlock
+                                    x:Uid="SpeakerTitle"
+                                    Text="Speaker"
+                                    Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock
+                                    x:Name="SpeakerStatusText"
+                                    x:Uid="SpeakerStatusText"
+                                    Text="Not locked"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <ComboBox
+                            x:Name="SpeakerDeviceComboBox"
+                            x:Uid="SpeakerDeviceComboBox"
+                            Header="Output device"
+                            DisplayMemberPath="Name"
+                            PlaceholderText="No device detected"
+                            HorizontalAlignment="Stretch"
+                            SelectionChanged="SpeakerDeviceComboBox_SelectionChanged" />
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Slider
+                                x:Name="SpeakerVolumeSlider"
+                                x:Uid="SpeakerVolumeSlider"
+                                Header="Volume"
+                                Minimum="0"
+                                Maximum="100"
+                                StepFrequency="1"
+                                TickFrequency="10"
+                                TickPlacement="BottomRight"
+                                ValueChanged="SpeakerVolumeSlider_ValueChanged" />
+                            <TextBlock
+                                x:Name="SpeakerVolumeText"
+                                Grid.Column="1"
+                                MinWidth="48"
+                                Margin="0,0,0,4"
+                                Text="0%"
+                                TextAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Style="{StaticResource SubtitleTextBlockStyle}" />
+                        </Grid>
+
+                        <ToggleSwitch
+                            x:Name="SpeakerLockToggle"
+                            x:Uid="SpeakerLockToggle"
+                            Header="Lock this device volume"
+                            OffContent="Not locked"
+                            OnContent="Locked"
+                            Toggled="SpeakerLockToggle_Toggled" />
+                    </StackPanel>
+                </Border>
+
+                <Border
+                    Grid.Column="1"
+                    Padding="20"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon
+                                Glyph="&#xE720;"
+                                FontSize="22"
+                                Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <StackPanel>
+                                <TextBlock
+                                    x:Uid="MicrophoneTitle"
+                                    Text="Microphone"
+                                    Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock
+                                    x:Name="MicrophoneStatusText"
+                                    x:Uid="MicrophoneStatusText"
+                                    Text="Not locked"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <ComboBox
+                            x:Name="MicrophoneDeviceComboBox"
+                            x:Uid="MicrophoneDeviceComboBox"
+                            Header="Input device"
+                            DisplayMemberPath="Name"
+                            PlaceholderText="No device detected"
+                            HorizontalAlignment="Stretch"
+                            SelectionChanged="MicrophoneDeviceComboBox_SelectionChanged" />
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Slider
+                                x:Name="MicrophoneVolumeSlider"
+                                x:Uid="MicrophoneVolumeSlider"
+                                Header="Volume"
+                                Minimum="0"
+                                Maximum="100"
+                                StepFrequency="1"
+                                TickFrequency="10"
+                                TickPlacement="BottomRight"
+                                ValueChanged="MicrophoneVolumeSlider_ValueChanged" />
+                            <TextBlock
+                                x:Name="MicrophoneVolumeText"
+                                Grid.Column="1"
+                                MinWidth="48"
+                                Margin="0,0,0,4"
+                                Text="0%"
+                                TextAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Style="{StaticResource SubtitleTextBlockStyle}" />
+                        </Grid>
+
+                        <ToggleSwitch
+                            x:Name="MicrophoneLockToggle"
+                            x:Uid="MicrophoneLockToggle"
+                            Header="Lock this device volume"
+                            OffContent="Not locked"
+                            OnContent="Locked"
+                            Toggled="MicrophoneLockToggle_Toggled" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+
+        <StackPanel
+            Grid.Row="3"
+            Orientation="Horizontal"
+            Spacing="12"
+            VerticalAlignment="Center">
+            <Button
+                x:Name="RefreshButton"
+                x:Uid="RefreshButton"
+                Content="Refresh devices"
+                Click="RefreshButton_Click" />
+            <TextBlock
+                x:Uid="FooterHint"
+                Text="Tip: Keep this app running. Locks are released when it exits."
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                TextWrapping="Wrap"
+                VerticalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Page>

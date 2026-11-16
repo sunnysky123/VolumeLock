@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="AppSubtitle.Text"><value>Lock speaker and microphone volume to stop other apps from changing it</value></data>
+
+  <data name="StatusInfoBar.Title"><value>Ready</value></data>
+  <data name="StatusInfoBar.Message"><value>Select a device, set the volume, then turn on the corresponding lock.</value></data>
+
+  <data name="SpeakerTitle.Text"><value>Speaker</value></data>
+  <data name="SpeakerStatusText.Text"><value>Not locked</value></data>
+  <data name="SpeakerDeviceComboBox.Header"><value>Output device</value></data>
+  <data name="SpeakerDeviceComboBox.PlaceholderText"><value>No device detected</value></data>
+  <data name="SpeakerVolumeSlider.Header"><value>Volume</value></data>
+  <data name="SpeakerLockToggle.Header"><value>Lock this device volume</value></data>
+  <data name="SpeakerLockToggle.OffContent"><value>Not locked</value></data>
+  <data name="SpeakerLockToggle.OnContent"><value>Locked</value></data>
+
+  <data name="MicrophoneTitle.Text"><value>Microphone</value></data>
+  <data name="MicrophoneStatusText.Text"><value>Not locked</value></data>
+  <data name="MicrophoneDeviceComboBox.Header"><value>Input device</value></data>
+  <data name="MicrophoneDeviceComboBox.PlaceholderText"><value>No device detected</value></data>
+  <data name="MicrophoneVolumeSlider.Header"><value>Volume</value></data>
+  <data name="MicrophoneLockToggle.Header"><value>Lock this device volume</value></data>
+  <data name="MicrophoneLockToggle.OffContent"><value>Not locked</value></data>
+  <data name="MicrophoneLockToggle.OnContent"><value>Locked</value></data>
+
+  <data name="RefreshButton.Content"><value>Refresh devices</value></data>
+  <data name="FooterHint.Text"><value>Tip: Keep this app running. Locks are released when it exits.</value></data>
+
+  <data name="StatusUnlocked"><value>Not locked · Free to adjust</value></data>
+  <data name="StatusDeviceSwitched"><value>Device changed. Lock it again.</value></data>
+  <data name="StatusLockedWithCount"><value>Locked · Restored {0} times</value></data>
+  <data name="StatusLockedWithAction"><value>Locked · {0} {1} times</value></data>
+  <data name="LockActionUnmute"><value>unmuted</value></data>
+  <data name="LockActionRestore"><value>volume restored</value></data>
+
+  <data name="ErrorCannotLockSpeaker"><value>Cannot lock speaker</value></data>
+  <data name="ErrorSelectOutputDevice"><value>Select an output device first.</value></data>
+  <data name="ErrorLockSpeakerFailed"><value>Failed to lock speaker</value></data>
+  <data name="ErrorCannotLockMicrophone"><value>Cannot lock microphone</value></data>
+  <data name="ErrorSelectInputDevice"><value>Select an input device first.</value></data>
+  <data name="ErrorLockMicrophoneFailed"><value>Failed to lock microphone</value></data>
+  <data name="ErrorSetSpeakerVolumeFailed"><value>Failed to set speaker volume</value></data>
+  <data name="ErrorSetMicrophoneVolumeFailed"><value>Failed to set microphone volume</value></data>
+  <data name="ErrorReadSpeakerVolumeFailed"><value>Failed to read speaker volume</value></data>
+  <data name="ErrorReadMicrophoneVolumeFailed"><value>Failed to read microphone volume</value></data>
+  <data name="ErrorLoadDevicesFailed"><value>Failed to load audio devices</value></data>
+  <data name="ErrorVolumeLockException"><value>Volume lock error</value></data>
+
+  <data name="WarningNoAudioDevicesTitle"><value>No audio devices detected</value></data>
+  <data name="WarningNoAudioDevicesMessage"><value>Connect or enable an audio device and try again.</value></data>
+  <data name="InfoDevicesRefreshedTitle"><value>Device list refreshed</value></data>
+  <data name="InfoDevicesRefreshedMessage"><value>Locks are preserved while the selected devices remain available.</value></data>
+
+  <data name="TrayShow"><value>Show main window</value></data>
+  <data name="TrayLockSpeaker"><value>Lock speaker</value></data>
+  <data name="TrayLockMicrophone"><value>Lock microphone</value></data>
+  <data name="TrayExit"><value>Exit</value></data>
+  <data name="TrayTooltipUnlocked"><value>VolumeLock · Not locked</value></data>
+  <data name="TrayTooltipSpeaker"><value>Speaker locked: volume {0}%</value></data>
+  <data name="TrayTooltipMicrophone"><value>Microphone locked: volume {0}%</value></data>
+</root>
