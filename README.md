@@ -6,6 +6,12 @@ VolumeLock 是一个基于 WinUI 3 的 Windows 音量锁定工具，用于固定
   <img src="Assets/AppIcon.png" width="128" alt="VolumeLock 图标" />
 </p>
 
+## 界面截图
+
+<p align="center">
+  <img src="screenshot/main.png" alt="VolumeLock 主界面截图" />
+</p>
+
 ## 功能
 
 - 枚举并选择当前启用的扬声器（输出设备）和麦克风（输入设备）
