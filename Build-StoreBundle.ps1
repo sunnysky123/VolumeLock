@@ -1,3 +1,11 @@
+# 宿主脚本：默认发布自包含 + 裁剪版（.NET 运行时进包并裁剪），
+# 捆绑包约 16 MB，用户无需预装 .NET。
+# 加 -FullRuntime 后改为自包含但不裁剪（原生完整运行时），捆绑包约 88 MB。
+# 不再提供框架依赖方式：.NET 5+ 没有 MSIX 框架包，商店不会代为安装。
+param(
+    [switch]$FullRuntime
+)
+
 $ErrorActionPreference = 'Stop'
 
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -79,13 +87,15 @@ foreach ($arch in $architectures) {
         throw "Clean failed for $name."
     }
 
-    # SelfContained=false 不打入 .NET 运行时，安装包按架构约 14 MB（自包含约 60 MB）。
-    # 代价：商店不会代为安装 .NET，未装 .NET 的机器启动时会提示手动下载。
+    # 默认由 csproj 产出自包含 + 裁剪版（按架构约 8 MB，捆绑包约 16 MB）。
+    # -FullRuntime 改为自包含但不裁剪（按架构约 45 MB），发布时不需要显式传
+    # SelfContained/PublishTrimmed，避免覆盖 csproj 里的联动逻辑。
+    $runtimeArg = if ($FullRuntime) { '-p:FullRuntime=true' } else { '-p:FullRuntime=false' }
     & dotnet publish (Join-Path $ProjectDir 'VolumeLock.csproj') `
         -c $Configuration `
         "-p:Platform=$($arch.Platform)" `
         "-p:RuntimeIdentifier=win-$name" `
-        -p:SelfContained=false `
+        $runtimeArg `
         -p:GenerateAppxPackageOnBuild=true `
         -p:AppxPackageSigningEnabled=false `
         "-p:AppxPackageDir=$StorePackages\$name\"

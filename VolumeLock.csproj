@@ -19,6 +19,11 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!--
+      AudioInterop.Wrap hands raw interface pointers to ComInterfaceMarshaller<T>,
+      which only accepts a void*.
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!--
@@ -71,24 +76,105 @@
   <!--
     Publish Properties
 
-    SelfContained=false keeps the .NET runtime out of the MSIX, so the package
-    stays small (about 14 MB per architecture instead of about 60 MB).
+    The default publish is self-contained and trimmed: the .NET runtime is
+    bundled inside the MSIX, so there is no "download .NET" prompt and no
+    runtime prerequisite for Store users, and ILLink drops the unused parts of
+    that runtime. That lands at about 8 MB per architecture, 16 MB for the
+    x64 + ARM64 bundle.
 
-    Consequence to be aware of: the Store only auto-installs framework packages
-    listed in a <PackageDependency> (here Microsoft.WindowsAppRuntime.2). There
-    is no such framework package for .NET 5+, so on a machine without a
-    compatible .NET runtime the apphost shows a "download .NET" prompt. See the
-    packaging section of README.md for the trade-off with SelfContained=true.
+    Pass -p:FullRuntime=true (or .\Build-StoreBundle.ps1 -FullRuntime) to ship
+    the complete runtime instead: about 45 MB per architecture, 88 MB for the
+    bundle. That is the escape hatch for cases where a trimmed build is not an
+    option, for example while bisecting a trimming-related failure.
+
+    A framework-dependent package (SelfContained=false) is deliberately not
+    offered any more. The Store only auto-installs framework packages listed in
+    a <PackageDependency>, and .NET 5+ has no MSIX framework package
+    (dotnet/runtime#51574); adding one by hand makes installation fail with
+    0x80073CF3. A framework-dependent MSIX would therefore leave users staring
+    at a "download .NET" prompt on first launch.
 
     WindowsAppSDKSelfContained is intentionally left at its default (false) so
     the Windows App SDK stays a Store-serviced framework dependency.
 
-    PublishTrimmed must stay false because WinUI 3 doesn't support trimming.
+    Trimming and COM: Microsoft documents WinUI 3 as not supporting trimming,
+    and trimming this project originally crashed on startup inside
+    Microsoft.UI.Xaml.dll with a stowed exception. The cause was not XAML: it
+    was audio COM. Trimming makes built-in COM interop unreliable, and legacy
+    [ComImport] marshalling is exactly what AudioVolumeService used, so every
+    Core Audio call failed or faulted. AudioInterop.cs now declares those
+    interfaces with [GeneratedComInterface] / [GeneratedComClass], whose stubs
+    are compiled ahead of time and survive trimming.
+
+    Because nothing in this project uses built-in COM any more,
+    BuiltInComInteropSupport stays at its default. Setting it to true merely
+    re-enables the (unused) ComActivator path and adds an IL2026 trim warning;
+    verified that the packaged trimmed build starts and reads volumes with the
+    switch both off and on.
+
+    No TrimmerRootAssembly is required: the Windows App SDK projection
+    assemblies survive on their own.
   -->
   <PropertyGroup>
-    <SelfContained>false</SelfContained>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed>false</PublishTrimmed>
+    <FullRuntime Condition="'$(FullRuntime)' == ''">false</FullRuntime>
+    <!--
+      Self-contained is the only shipping mode, so it is pinned here. PublishTrimmed
+      is still guarded by '$(SelfContained)' == 'true' rather than being a plain
+      true: a command-line -p:SelfContained=false wins over this property, and
+      trimming a framework-dependent publish fails with NETSDK1102.
+    -->
+    <SelfContained>true</SelfContained>
+    <!--
+      Trimming is a publish-time size optimization, so keep it to Release builds:
+      ILLink adds tens of seconds to every build and emits trim analysis warnings
+      that would otherwise pollute the daily Debug inner loop.
+    -->
+    <PublishTrimmed Condition="'$(FullRuntime)' != 'true' and '$(SelfContained)' == 'true' and '$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <PublishTrimmed Condition="'$(PublishTrimmed)' == ''">false</PublishTrimmed>
+    <!--
+      ReadyToRun would precompile the entire bundled framework, adding about
+      36 MB per architecture for a marginal startup gain. Both shipping modes
+      bundle the runtime, so it stays off.
+    -->
+    <PublishReadyToRun>False</PublishReadyToRun>
   </PropertyGroup>
+
+  <!--
+    A self-contained publish carries the .NET diagnostic toolchain: createdump,
+    the DAC/DBI debugger pair, the DiaSymReader symbol reader, and the EventPipe
+    tracing resource modules. A shipping app never touches them, so drop them
+    from the publish output (about 7.4 MB per architecture). Verified that the
+    app still starts after this removal.
+  -->
+  <Target Name="RemoveUnneededRuntimeDiagnostics" AfterTargets="Publish" Condition="'$(SelfContained)' == 'true'">
+    <ItemGroup>
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))mscordaccore*.dll" />
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))mscordbi.dll" />
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))createdump.exe" />
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))Microsoft.DiaSymReader.Native.*.dll" />
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))clretwrc.dll" />
+      <_UnneededRuntimeDiagnostic Include="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))clrgcexp.dll" />
+    </ItemGroup>
+    <Delete Files="@(_UnneededRuntimeDiagnostic)" />
+  </Target>
+
+  <!--
+    The MSIX payload is built from MSBuild items, not by scanning PublishDir, so
+    the deletions above do not reach the package. Filter the same files out of
+    the payload right before the package is generated.
+  -->
+  <Target Name="RemoveUnneededRuntimeDiagnosticsFromAppxPayload"
+          BeforeTargets="_GenerateAppxPackageFile"
+          Condition="'$(SelfContained)' == 'true' and '$(AppxPackage)' == 'true'">
+    <ItemGroup>
+      <_UnneededRuntimeDiagnosticInPayload Include="@(AppxPackagePayload)"
+                                          Condition="$([System.String]::Copy('%(Filename)').StartsWith('mscordaccore')) OR
+                                                     '%(Filename)' == 'mscordbi' OR
+                                                     '%(Filename)' == 'createdump' OR
+                                                     '%(Filename)' == 'clretwrc' OR
+                                                     '%(Filename)' == 'clrgcexp' OR
+                                                     $([System.String]::Copy('%(Filename)').StartsWith('Microsoft.DiaSymReader.Native'))" />
+      <AppxPackagePayload Remove="@(_UnneededRuntimeDiagnosticInPayload)" />
+    </ItemGroup>
+  </Target>
 </Project>

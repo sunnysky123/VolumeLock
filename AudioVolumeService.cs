@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Threading.Tasks;
 
 namespace VolumeLock;
@@ -10,28 +11,16 @@ public sealed record AudioEndpoint(string Id, string Name, bool IsCapture);
 
 public sealed class AudioVolumeService : IDisposable
 {
-    private const uint CLSCTX_ALL = 0x17;
-    private const uint DEVICE_STATE_ACTIVE = 0x00000001;
-    private const uint STGM_READ = 0;
-    private const ushort VT_LPWSTR = 31;
-
-    private static readonly Guid CLSID_MMDeviceEnumerator = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
     private static readonly PROPERTYKEY PKEY_Device_FriendlyName = new(
         new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"),
         14);
-
-    [DllImport("ole32.dll")]
-    private static extern int PropVariantClear(ref PROPVARIANT value);
 
     private readonly IMMDeviceEnumerator _enumerator;
     private bool _disposed;
 
     public AudioVolumeService()
     {
-        var enumeratorType = Type.GetTypeFromCLSID(CLSID_MMDeviceEnumerator)
-            ?? throw new InvalidOperationException("无法创建 Windows 音频设备枚举器。");
-
-        _enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(enumeratorType)!;
+        _enumerator = CreateEnumerator();
     }
 
     public Task<IReadOnlyList<AudioEndpoint>> GetDevicesAsync(bool capture)
@@ -40,40 +29,26 @@ public sealed class AudioVolumeService : IDisposable
 
         var hr = _enumerator.EnumAudioEndpoints(
             capture ? EDataFlow.Capture : EDataFlow.Render,
-            DEVICE_STATE_ACTIVE,
+            AudioInterop.DEVICE_STATE_ACTIVE,
             out var collection);
         Check(hr);
 
-        try
+        Check(collection.GetCount(out var count));
+
+        var devices = new List<AudioEndpoint>();
+        for (uint index = 0; index < count; index++)
         {
-            Check(collection.GetCount(out var count));
+            Check(collection.Item(index, out var device));
 
-            var devices = new List<AudioEndpoint>();
-            for (uint index = 0; index < count; index++)
-            {
-                Check(collection.Item(index, out var device));
-
-                try
-                {
-                    var id = GetEndpointId(device);
-                    devices.Add(new AudioEndpoint(id, GetFriendlyName(device, id), capture));
-                }
-                finally
-                {
-                    Marshal.FinalReleaseComObject(device);
-                }
-            }
-
-            IReadOnlyList<AudioEndpoint> result = devices
-                .OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-
-            return Task.FromResult(result);
+            var id = GetEndpointId(device);
+            devices.Add(new AudioEndpoint(id, GetFriendlyName(device, id), capture));
         }
-        finally
-        {
-            Marshal.FinalReleaseComObject(collection);
-        }
+
+        IReadOnlyList<AudioEndpoint> result = devices
+            .OrderBy(device => device.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        return Task.FromResult(result);
     }
 
     public string? GetDefaultDeviceId(bool capture)
@@ -90,22 +65,15 @@ public sealed class AudioVolumeService : IDisposable
             return null;
         }
 
-        try
-        {
-            return GetEndpointId(device);
-        }
-        finally
-        {
-            Marshal.FinalReleaseComObject(device);
-        }
+        return GetEndpointId(device);
     }
 
     public float GetVolumeLevel(string deviceId)
     {
         ThrowIfDisposed();
 
-        using var handle = ActivateVolume(deviceId);
-        Check(handle.Volume.GetMasterVolumeLevelScalar(out var level));
+        var volume = ActivateVolume(deviceId);
+        Check(volume.GetMasterVolumeLevelScalar(out var level));
         return level;
     }
 
@@ -113,15 +81,15 @@ public sealed class AudioVolumeService : IDisposable
     {
         ThrowIfDisposed();
 
-        using var handle = ActivateVolume(deviceId);
+        var volume = ActivateVolume(deviceId);
         var context = Guid.Empty;
 
         if (unmute)
         {
-            Check(handle.Volume.SetMute(false, ref context));
+            Check(volume.SetMute(false, ref context));
         }
 
-        Check(handle.Volume.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref context));
+        Check(volume.SetMasterVolumeLevelScalar(Math.Clamp(level, 0f, 1f), ref context));
     }
 
     public VolumeLockSession CreateLock(
@@ -131,17 +99,7 @@ public sealed class AudioVolumeService : IDisposable
     {
         ThrowIfDisposed();
 
-        var handle = ActivateVolume(deviceId);
-
-        try
-        {
-            return new VolumeLockSession(handle, targetLevel, onExternalChange);
-        }
-        catch
-        {
-            handle.Dispose();
-            throw;
-        }
+        return new VolumeLockSession(ActivateVolume(deviceId), targetLevel, onExternalChange);
     }
 
     public void Dispose()
@@ -152,7 +110,20 @@ public sealed class AudioVolumeService : IDisposable
         }
 
         _disposed = true;
-        Marshal.FinalReleaseComObject(_enumerator);
+
+        // Source-generated COM wrappers are ComObject instances, which are not
+        // IDisposable and expose no FinalReleaseComObject equivalent: their one
+        // reference is released by the finalizer. There is nothing to do here.
+    }
+
+    private static IMMDeviceEnumerator CreateEnumerator()
+    {
+        var clsid = AudioInterop.CLSID_MMDeviceEnumerator;
+        var iid = typeof(IMMDeviceEnumerator).GUID;
+
+        Check(AudioInterop.CoCreateInstance(ref clsid, IntPtr.Zero, AudioInterop.CLSCTX_ALL, ref iid, out var pointer));
+
+        return AudioInterop.Wrap<IMMDeviceEnumerator>(pointer);
     }
 
     private void ThrowIfDisposed()
@@ -163,73 +134,36 @@ public sealed class AudioVolumeService : IDisposable
         }
     }
 
-    private IMMDevice GetDevice(string deviceId)
+    private IAudioEndpointVolume ActivateVolume(string deviceId)
     {
-        var hr = _enumerator.GetDevice(deviceId, out var device);
-        Check(hr);
-        return device;
-    }
+        Check(_enumerator.GetDevice(deviceId, out var device));
 
-    private EndpointVolumeHandle ActivateVolume(string deviceId)
-    {
-        var device = GetDevice(deviceId);
-
-        try
-        {
-            var iid = typeof(IAudioEndpointVolume).GUID;
-            var hr = device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var pointer);
-            Check(hr);
-
-            try
-            {
-                var volume = (IAudioEndpointVolume)Marshal.GetUniqueObjectForIUnknown(pointer);
-                return new EndpointVolumeHandle(volume, pointer);
-            }
-            catch
-            {
-                Marshal.Release(pointer);
-                throw;
-            }
-        }
-        finally
-        {
-            Marshal.FinalReleaseComObject(device);
-        }
+        var iid = typeof(IAudioEndpointVolume).GUID;
+        Check(device.Activate(ref iid, AudioInterop.CLSCTX_ALL, IntPtr.Zero, out var volume));
+        return volume;
     }
 
     private static string GetEndpointId(IMMDevice device)
     {
-        var hr = device.GetId(out var pointer);
-        Check(hr);
-
-        try
-        {
-            return Marshal.PtrToStringUni(pointer) ?? string.Empty;
-        }
-        finally
-        {
-            Marshal.FreeCoTaskMem(pointer);
-        }
+        Check(device.GetId(out var id));
+        return id ?? string.Empty;
     }
 
     private static string GetFriendlyName(IMMDevice device, string fallback)
     {
-        var hr = device.OpenPropertyStore(STGM_READ, out var storePointer);
+        var hr = device.OpenPropertyStore(AudioInterop.STGM_READ, out var store);
         if (hr < 0)
         {
             return fallback;
         }
 
-        IPropertyStore? store = null;
         var value = new PROPVARIANT();
 
         try
         {
-            store = (IPropertyStore)Marshal.GetUniqueObjectForIUnknown(storePointer);
-
             var key = PKEY_Device_FriendlyName;
             hr = store.GetValue(ref key, out value);
-            if (hr < 0 || value.vt != VT_LPWSTR || value.Value1 == IntPtr.Zero)
+            if (hr < 0 || value.vt != AudioInterop.VT_LPWSTR || value.Value1 == IntPtr.Zero)
             {
                 return fallback;
             }
@@ -240,15 +174,8 @@ public sealed class AudioVolumeService : IDisposable
         {
             if (value.vt != 0)
             {
-                PropVariantClear(ref value);
+                AudioInterop.PropVariantClear(ref value);
             }
-
-            if (store is not null)
-            {
-                Marshal.FinalReleaseComObject(store);
-            }
-
-            Marshal.Release(storePointer);
         }
     }
 
@@ -257,7 +184,7 @@ public sealed class AudioVolumeService : IDisposable
 
 public sealed class VolumeLockSession : IDisposable
 {
-    private readonly EndpointVolumeHandle _handle;
+    private readonly IAudioEndpointVolume _volume;
     private readonly VolumeChangeCallback _callback;
     private readonly Action<float, float, bool> _onExternalChange;
     private readonly Guid _selfContext = Guid.NewGuid();
@@ -267,31 +194,23 @@ public sealed class VolumeLockSession : IDisposable
     private bool _disposed;
 
     internal VolumeLockSession(
-        EndpointVolumeHandle handle,
+        IAudioEndpointVolume volume,
         float targetLevel,
         Action<float, float, bool> onExternalChange)
     {
-        _handle = handle;
+        _volume = volume;
         _targetLevel = Math.Clamp(targetLevel, 0f, 1f);
         _onExternalChange = onExternalChange;
         _callback = new VolumeChangeCallback(OnVolumeNotification);
 
         try
         {
-            AudioVolumeService.Check(handle.Volume.RegisterControlChangeNotify(_callback));
+            AudioVolumeService.Check(_volume.RegisterControlChangeNotify(_callback));
             ApplyTargetNoLock();
         }
         catch
         {
-            try
-            {
-                handle.Volume.UnregisterControlChangeNotify(_callback);
-            }
-            catch
-            {
-                // Ignore cleanup failures from the failed registration path.
-            }
-
+            UnregisterQuietly();
             throw;
         }
     }
@@ -329,16 +248,9 @@ public sealed class VolumeLockSession : IDisposable
             _disposed = true;
         }
 
-        try
-        {
-            _handle.Volume.UnregisterControlChangeNotify(_callback);
-        }
-        catch
-        {
-            // Ignore unregister failures while disposing.
-        }
+        UnregisterQuietly();
 
-        _handle.Dispose();
+        // See AudioVolumeService.Dispose: the COM wrapper is released by its finalizer.
     }
 
     private void OnVolumeNotification(Guid context, float observedLevel, bool muted)
@@ -362,7 +274,19 @@ public sealed class VolumeLockSession : IDisposable
     private void ApplyTargetNoLock()
     {
         var context = _selfContext;
-        AudioVolumeService.Check(_handle.Volume.SetMasterVolumeLevelScalar(_targetLevel, ref context));
+        AudioVolumeService.Check(_volume.SetMasterVolumeLevelScalar(_targetLevel, ref context));
+    }
+
+    private void UnregisterQuietly()
+    {
+        try
+        {
+            _volume.UnregisterControlChangeNotify(_callback);
+        }
+        catch
+        {
+            // Ignore unregister failures while disposing or unwinding a failed registration.
+        }
     }
 
     private void ThrowIfDisposed()
@@ -374,40 +298,8 @@ public sealed class VolumeLockSession : IDisposable
     }
 }
 
-internal sealed class EndpointVolumeHandle : IDisposable
-{
-    private IntPtr _pointer;
-    private bool _disposed;
-
-    public EndpointVolumeHandle(IAudioEndpointVolume volume, IntPtr pointer)
-    {
-        Volume = volume;
-        _pointer = pointer;
-    }
-
-    public IAudioEndpointVolume Volume { get; }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-
-        if (_pointer != IntPtr.Zero)
-        {
-            Marshal.Release(_pointer);
-            _pointer = IntPtr.Zero;
-        }
-
-        Marshal.FinalReleaseComObject(Volume);
-    }
-}
-
-[ComVisible(true)]
-public sealed class VolumeChangeCallback : IAudioEndpointVolumeCallback
+[GeneratedComClass]
+public sealed partial class VolumeChangeCallback : IAudioEndpointVolumeCallback
 {
     private readonly Action<Guid, float, bool> _onChanged;
 
@@ -451,163 +343,4 @@ internal struct AUDIO_VOLUME_NOTIFICATION_DATA
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
     public float[] ChannelVolumes;
-}
-
-internal enum EDataFlow
-{
-    Render = 0,
-    Capture = 1,
-    All = 2
-}
-
-internal enum ERole
-{
-    Console = 0,
-    Multimedia = 1,
-    Communications = 2
-}
-
-[ComImport]
-[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IMMDeviceEnumerator
-{
-    [PreserveSig]
-    int EnumAudioEndpoints(EDataFlow dataFlow, uint stateMask, out IMMDeviceCollection collection);
-
-    [PreserveSig]
-    int GetDefaultAudioEndpoint(EDataFlow dataFlow, ERole role, out IMMDevice endpoint);
-
-    [PreserveSig]
-    int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice device);
-}
-
-[ComImport]
-[Guid("D666063F-1587-4E43-81F1-B948E807363F")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IMMDevice
-{
-    [PreserveSig]
-    int Activate(ref Guid iid, uint classContext, IntPtr activationParams, out IntPtr interfacePointer);
-
-    [PreserveSig]
-    int OpenPropertyStore(uint access, out IntPtr propertyStore);
-
-    [PreserveSig]
-    int GetId(out IntPtr idPointer);
-
-    [PreserveSig]
-    int GetState(out uint state);
-}
-
-[ComImport]
-[Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IMMDeviceCollection
-{
-    [PreserveSig]
-    int GetCount(out uint count);
-
-    [PreserveSig]
-    int Item(uint index, out IMMDevice device);
-}
-
-[ComImport]
-[Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IPropertyStore
-{
-    [PreserveSig]
-    int GetCount(out uint count);
-
-    [PreserveSig]
-    int GetAt(uint index, out PROPERTYKEY key);
-
-    [PreserveSig]
-    int GetValue(ref PROPERTYKEY key, out PROPVARIANT value);
-
-    [PreserveSig]
-    int SetValue(ref PROPERTYKEY key, IntPtr value);
-
-    [PreserveSig]
-    int Commit();
-}
-
-[StructLayout(LayoutKind.Sequential)]
-internal struct PROPERTYKEY
-{
-    public Guid FormatId;
-    public uint PropertyId;
-
-    public PROPERTYKEY(Guid formatId, uint propertyId)
-    {
-        FormatId = formatId;
-        PropertyId = propertyId;
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Size = 24)]
-internal struct PROPVARIANT
-{
-    public ushort vt;
-    public ushort wReserved1;
-    public ushort wReserved2;
-    public ushort wReserved3;
-    public IntPtr Value1;
-    public IntPtr Value2;
-}
-
-[ComImport]
-[Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IAudioEndpointVolume
-{
-    [PreserveSig]
-    int RegisterControlChangeNotify(IAudioEndpointVolumeCallback callback);
-
-    [PreserveSig]
-    int UnregisterControlChangeNotify(IAudioEndpointVolumeCallback callback);
-
-    [PreserveSig]
-    int GetChannelCount(out uint count);
-
-    [PreserveSig]
-    int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
-
-    [PreserveSig]
-    int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
-
-    [PreserveSig]
-    int GetMasterVolumeLevel(out float levelDb);
-
-    [PreserveSig]
-    int GetMasterVolumeLevelScalar(out float level);
-
-    [PreserveSig]
-    int SetChannelVolumeLevel(uint channel, float levelDb, ref Guid eventContext);
-
-    [PreserveSig]
-    int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid eventContext);
-
-    [PreserveSig]
-    int GetChannelVolumeLevel(uint channel, out float levelDb);
-
-    [PreserveSig]
-    int GetChannelVolumeLevelScalar(uint channel, out float level);
-
-    [PreserveSig]
-    int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid eventContext);
-
-    [PreserveSig]
-    int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
-}
-
-[ComVisible(true)]
-[ComImport]
-[Guid("657804FA-D6AD-4496-8A60-352752AF4F89")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IAudioEndpointVolumeCallback
-{
-    [PreserveSig]
-    int OnNotify(IntPtr notificationData);
 }
