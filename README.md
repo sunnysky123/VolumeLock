@@ -6,6 +6,26 @@ VolumeLock 是一个基于 WinUI 3 的 Windows 音量锁定工具，用于固定
   <img src="Assets/AppIcon.png" width="128" alt="VolumeLock 图标" />
 </p>
 
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9P0GM98HNNQD">Microsoft Store</a> ·
+  <a href="PRIVACY.md">隐私声明</a> ·
+  <a href="LICENSE">MIT License</a>
+</p>
+
+## 下载安装
+
+VolumeLock 已上架 Microsoft Store，可直接下载安装使用，无需自行构建：
+
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9P0GM98HNNQD">
+    <img src="https://get.microsoft.com/images/zh-CN%20dark.svg" width="200" alt="从 Microsoft Store 获取" />
+  </a>
+</p>
+
+商店页面：<https://apps.microsoft.com/detail/9P0GM98HNNQD>
+
+安装后可从开始菜单或搜索中启动 VolumeLock，后续更新由 Microsoft Store 自动推送。
+
 ## 界面截图
 
 <p align="center">
@@ -32,12 +52,19 @@ VolumeLock 是一个基于 WinUI 3 的 Windows 音量锁定工具，用于固定
 
 ## 系统要求
 
+运行（从 Microsoft Store 安装）：
+
 - Windows 10 版本 1809（build 17763）或更高版本
+
+从源码构建本项目还需要：
+
 - .NET 10 SDK
 - 首次还原 NuGet 包时需要网络连接
 - 推荐使用 Visual Studio 2022 或更高版本，并安装“Windows 应用开发”相关负载
 
-## 构建
+## 从源码构建
+
+> 仅在你需要自行编译或修改代码时需要本节内容；普通用户请直接从 [Microsoft Store](https://apps.microsoft.com/detail/9P0GM98HNNQD) 安装。
 
 在项目根目录执行：
 
@@ -54,7 +81,7 @@ dotnet build VolumeLock.csproj -c Debug -p:Platform=x64
 - `x86`
 - `ARM64`
 
-## 运行
+## 从源码运行
 
 ```powershell
 dotnet run --project VolumeLock.csproj -p:Platform=x64
@@ -84,7 +111,7 @@ dotnet publish VolumeLock.csproj -c Release `
 
 ## 使用说明
 
-1. 启动 VolumeLock。
+1. 从 [Microsoft Store](https://apps.microsoft.com/detail/9P0GM98HNNQD) 安装并启动 VolumeLock。
 2. 在“扬声器”或“麦克风”区域选择要控制的设备。
 3. 调整音量滑块到目标值。
 4. 打开“锁定此设备音量”开关。
