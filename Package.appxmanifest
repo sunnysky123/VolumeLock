@@ -10,7 +10,7 @@
   <Identity
     Name="27506sunnysky.VolumeLock"
     Publisher="CN=F63F72CB-11CF-4649-86D2-C66971E4FB29"
-    Version="1.0.0.0" />
+    Version="1.0.2.0" />
 
   <Properties>
     <DisplayName>VolumeLock</DisplayName>
@@ -37,11 +37,11 @@
       <uap:VisualElements
         DisplayName="VolumeLock"
         Description="VolumeLock"
-        BackgroundColor="transparent"
+        BackgroundColor="#307CE7"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#307CE7" />
       </uap:VisualElements>
     </Application>
   </Applications>

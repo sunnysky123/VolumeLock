@@ -55,10 +55,11 @@ VolumeLock 已上架 Microsoft Store，可直接下载安装使用，无需自�
 运行（从 Microsoft Store 安装）：
 
 - Windows 10 版本 1809（build 17763）或更高版本
+- .NET 11 桌面运行时（Microsoft.WindowsDesktop.App 11.x）。应用以**框架依赖**（framework-dependent）方式发布，不内置 .NET 运行时；未安装时启动会提示下载。
 
 从源码构建本项目还需要：
 
-- .NET 10 SDK
+- .NET 11 SDK
 - 首次还原 NuGet 包时需要网络连接
 - 推荐使用 Visual Studio 2022 或更高版本，并安装“Windows 应用开发”相关负载
 
@@ -78,7 +79,6 @@ dotnet build VolumeLock.csproj -c Debug -p:Platform=x64
 项目支持以下平台：
 
 - `x64`
-- `x86`
 - `ARM64`
 
 ## 从源码运行
@@ -88,6 +88,32 @@ dotnet run --project VolumeLock.csproj -p:Platform=x64
 ```
 
 如果使用 Visual Studio，直接按 `F5` 启动即可。
+
+## 图标资源
+
+所有磁贴、启动画面、商店徽标和托盘图标都由品牌母版 [`Assets/AppIcon.png`](Assets/AppIcon.png) 统一派生，不要手工编辑单个尺寸的文件。修改母版后执行：
+
+```powershell
+.\Tools\Generate-Assets.ps1
+```
+
+脚本会重新生成 `Assets` 下的全部 59 个资源文件（含多语言缩放变体），并清理本脚本历史版本遗留的过时文件：
+
+| 资源 | 生成的变体 |
+| --- | --- |
+| `Square44x44Logo` | 默认 + `scale-125/150/200/400` + 14 组 `targetsize-*_altform-unplated/-lightunplated` |
+| `Square150x150Logo` | 默认 + `scale-125/150/200/400` |
+| `Wide310x150Logo` | 默认 + `scale-125/150/200/400` |
+| `SplashScreen` | 默认 + `scale-125/150/200/400` |
+| `StoreLogo` | 默认 + `scale-125/150/200/400` |
+| `LockScreenLogo` | `scale-100/200/400`（纯白单色，锁屏背景上可见） |
+| `AppIcon.ico` / `AppIconUnlocked.ico` | 16/20/24/32/40/48/64/128/256 px 多尺寸 |
+
+注意：
+
+- 磁贴类资源使用不透明渐变底 + 白色锁形，浅色和深色主题下都能看清。
+- 启动画面为透明底，背景色由 `Package.appxmanifest` 的 `SplashScreen` `BackgroundColor` 提供。
+- ICO 必须保留 16×16 条目，否则托盘图标会被缩放模糊。
 
 ## 打包
 
@@ -107,7 +133,17 @@ dotnet publish VolumeLock.csproj -c Release `
 .\Build-StoreBundle.ps1
 ```
 
-输出目录为 `StorePackages`。
+脚本会先调用 `Tools\Generate-Assets.ps1` 重建图标资源，然后校验清单引用的图标文件全部存在、ICO 含 16×16 条目，最后产出包含 x64/ARM64 主包与 `scale-100/125/150/400` 资源包的捆绑包。输出目录为 `StorePackages`。
+
+### 部署方式
+
+项目以 **.NET 框架依赖**（`<SelfContained>false</SelfContained>`）方式发布：MSIX 内不含 .NET 运行时，安装包按架构约 14 MB。
+
+需要注意的行为：Microsoft Store 只会根据清单中的 `<PackageDependency>` 自动安装“框架包”（本项目只有 Windows App SDK 的 `Microsoft.WindowsAppRuntime.2`）。.NET 5+ 没有对应的 MSIX 框架包（[dotnet/runtime#51574](https://github.com/dotnet/runtime/issues/51574) 至今未解决），也无法通过手动添加 `<PackageDependency Name="Microsoft.NETCore.App">` 绕过——实测会以 `0x80073CF3`“依赖于找不到的框架”导致**安装失败**。因此在未安装 .NET 的机器上，启动时会弹框提示用户手动下载 .NET 11 桌面运行时。
+
+若希望消除该提示，把 `SelfContained` 改为 `true`（`VolumeLock.csproj`、两个 `Properties/PublishProfiles/win-*.pubxml`、`Build-StoreBundle.ps1` 需同步修改）：运行时会被打进 MSIX，捆绑包增大到约 118 MB（x64 约 61 MB、ARM64 约 58 MB），商店按架构分发，单个用户实际下载约 60 MB。
+
+Windows App SDK 保持框架依赖（未设置 `WindowsAppSDKSelfContained`），由商店自动安装并随服务更新。
 
 ## 使用说明
 
@@ -146,6 +182,7 @@ VolumeLock/
 ├─ LocalizationService.cs     # 资源字符串读取
 ├─ Strings/                   # en-US、zh-CN 本地化资源
 ├─ Assets/                    # 应用图标、托盘图标和商店素材
+├─ Tools/Generate-Assets.ps1  # 从品牌母版派生全部图标资源
 ├─ Package.appxmanifest       # MSIX 应用清单
 └─ Build-StoreBundle.ps1      # 生成 x64 + ARM64 商店捆绑包
 ```

@@ -4,11 +4,47 @@ $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Configuration = 'Release'
 $StorePackages = Join-Path $ProjectDir 'StorePackages'
 
+# 图标资源全部由 Tools\Generate-Assets.ps1 从 Assets\AppIcon.png 派生。
+# 必须在打包前重新生成，否则磁贴/托盘会沿用旧的浅色或缺失尺寸的图。
+Write-Host 'Generating icon assets...'
+& (Join-Path $ProjectDir 'Tools\Generate-Assets.ps1') -AssetsDirectory (Join-Path $ProjectDir 'Assets')
+
+# 校验：清单引用的每个图标都必须存在，且 .ico 必须覆盖小尺寸（否则托盘图标会模糊）。
 $manifestPath = Join-Path $ProjectDir 'Package.appxmanifest'
 $manifest = [xml](Get-Content $manifestPath -Raw)
 $ns = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
 $ns.AddNamespace('p', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+$ns.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
 $Version = $manifest.SelectSingleNode('/p:Package/p:Identity', $ns).Version
+
+$requiredAssets = @(
+    $manifest.SelectNodes('//uap:VisualElements/@Square150x150Logo | //uap:VisualElements/@Square44x44Logo | //uap:DefaultTile/@Wide310x150Logo | //uap:SplashScreen/@Image', $ns)
+) | ForEach-Object { $_.Value }
+$requiredAssets += $manifest.SelectSingleNode('/p:Package/p:Properties/p:Logo', $ns).InnerText
+$requiredAssets += 'Assets\AppIcon.ico', 'Assets\AppIconUnlocked.ico'
+
+foreach ($asset in $requiredAssets) {
+    $path = Join-Path $ProjectDir $asset
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Manifest asset missing: $asset"
+    }
+}
+
+foreach ($ico in 'Assets\AppIcon.ico', 'Assets\AppIconUnlocked.ico') {
+    $bytes = [System.IO.File]::ReadAllBytes((Join-Path $ProjectDir $ico))
+    $count = [BitConverter]::ToUInt16($bytes, 4)
+    if ($count -eq 0) {
+        throw "$ico contains no image entries."
+    }
+    $sizes = @(for ($i = 0; $i -lt $count; $i++) {
+            $dimension = $bytes[6 + 16 * $i]
+            if ($dimension -eq 0) { 256 } else { $dimension }
+        })
+    if ($sizes -notcontains 16) {
+        throw "$ico has no 16x16 entry; small shell icons will be blurry."
+    }
+    Write-Host "  $ico -> $($sizes -join '/') px"
+}
 
 $makeappx = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.buildtools" -Recurse -Filter MakeAppx.exe -ErrorAction Stop |
     Where-Object { $_.FullName -match '\\x64\\' } |
@@ -43,6 +79,8 @@ foreach ($arch in $architectures) {
         throw "Clean failed for $name."
     }
 
+    # SelfContained=false 不打入 .NET 运行时，安装包按架构约 14 MB（自包含约 60 MB）。
+    # 代价：商店不会代为安装 .NET，未装 .NET 的机器启动时会提示手动下载。
     & dotnet publish (Join-Path $ProjectDir 'VolumeLock.csproj') `
         -c $Configuration `
         "-p:Platform=$($arch.Platform)" `
@@ -73,7 +111,7 @@ foreach ($arch in $architectures) {
         throw "Unbundle failed for $name."
     }
 
-    Copy-Item -Force (Join-Path $unbundleDir "VolumeLock_${Version}_${name}.msix") $bundleInput
+    Copy-Item -Force (Join-Path $unbundleDir '*.msix') $bundleInput
 }
 
 $outputBundle = Join-Path $StorePackages "VolumeLock_${Version}_x64_arm64.msixbundle"
